@@ -15,7 +15,8 @@ contract OracleVaultTest is Fixture {
         vm.prank(lp1);
         uint256 shares = nvdaVault.deposit(100_000e6, 0, 0, lp1);
         // On a fresh vault, each quote unit (6 decimals) of value becomes 1e12 share units, so shares carry 18 decimals.
-        assertEq(shares, 100_000e6 * 1e12);
+        // The first depositor funds the permanently locked shares out of that.
+        assertEq(shares, 100_000e6 * 1e12 - nvdaVault.LOCKED_SHARES());
         assertEq(nvdaVault.balanceOf(lp1), shares);
         assertEq(nvdaVault.totalValue(), 100_000e6);
     }
@@ -25,7 +26,7 @@ contract OracleVaultTest is Fixture {
         vm.prank(lp1);
         uint256 shares = nvdaVault.deposit(0, tokenAmount, 0, lp1);
         uint256 value = tokenAmount * NVDA_MID / 1e18;
-        assertEq(shares, value * 1e12);
+        assertEq(shares, value * 1e12 - nvdaVault.LOCKED_SHARES());
     }
 
     function test_secondDepositSameValuePerShare() public {
@@ -43,10 +44,11 @@ contract OracleVaultTest is Fixture {
         uint256 quoteBal = usdg.balanceOf(address(nvdaVault));
         uint256 tokenBal = nvda.balanceOf(address(nvdaVault));
 
+        uint256 supply = nvdaVault.totalSupply();
         vm.prank(lp1);
         (uint256 quoteOut, uint256 tokenOut) = nvdaVault.withdraw(shares / 2, lp1);
-        assertEq(quoteOut, quoteBal / 2);
-        assertEq(tokenOut, tokenBal / 2);
+        assertEq(quoteOut, quoteBal * (shares / 2) / supply);
+        assertEq(tokenOut, tokenBal * (shares / 2) / supply);
         assertEq(nvdaVault.balanceOf(lp1), shares - shares / 2);
     }
 
@@ -200,9 +202,10 @@ contract OracleVaultTest is Fixture {
         _swap(address(usdg), address(nvda), 10_000e6);
         // Share supply is unchanged but total value rose by the LP portion of the spread, so each share is worth more.
         assertGt(nvdaVault.totalValue(), valueBefore - 1);
-        assertEq(nvdaVault.totalSupply(), shares);
-        uint256 lpSpread = nvdaVault.totalValue() * 1e18 / shares;
-        assertGt(lpSpread, valueBefore * 1e18 / shares);
+        uint256 supply = nvdaVault.totalSupply();
+        assertEq(supply, shares + nvdaVault.LOCKED_SHARES());
+        uint256 lpSpread = nvdaVault.totalValue() * 1e18 / supply;
+        assertGt(lpSpread, valueBefore * 1e18 / supply);
     }
 
     function test_marketsPagesThroughTheRegistry() public view {
@@ -274,5 +277,50 @@ contract OracleVaultTest is Fixture {
 
         _swap(address(usdg), address(nvda), 10_000e6);
         assertGt(nvdaVault.pricePerShare(), before);
+    }
+
+    function test_firstDepositLocksShares() public {
+        vm.prank(lp1);
+        nvdaVault.deposit(100_000e6, 0, 0, lp1);
+        assertEq(nvdaVault.balanceOf(address(0xdEaD)), nvdaVault.LOCKED_SHARES());
+        assertEq(nvdaVault.totalSupply(), 100_000e6 * 1e12);
+
+        // Later deposits leave the locked amount alone.
+        vm.prank(lp2);
+        nvdaVault.deposit(100_000e6, 0, 0, lp2);
+        assertEq(nvdaVault.balanceOf(address(0xdEaD)), nvdaVault.LOCKED_SHARES());
+    }
+
+    function test_firstDepositMustCoverTheLockedShares() public {
+        uint256 tooSmall = nvdaVault.LOCKED_SHARES() / 1e12;
+        assertEq(nvdaVault.previewDeposit(tooSmall, 0), 0);
+
+        vm.prank(lp1);
+        vm.expectRevert(OracleVault.ZeroShares.selector);
+        nvdaVault.deposit(tooSmall, 0, 0, lp1);
+
+        assertEq(nvdaVault.previewDeposit(tooSmall + 1, 0), 1e12);
+        vm.prank(lp1);
+        assertEq(nvdaVault.deposit(tooSmall + 1, 0, 0, lp1), 1e12);
+    }
+
+    function test_supplyCannotBeShrunkToInflateShareValue() public {
+        // An attacker enters, leaves with everything it can, then donates to push up the value per share.
+        vm.startPrank(lp2);
+        uint256 attackerShares = nvdaVault.deposit(1e6, 0, 0, lp2);
+        nvdaVault.withdraw(attackerShares, lp2);
+        vm.stopPrank();
+        assertEq(nvdaVault.totalSupply(), nvdaVault.LOCKED_SHARES());
+        usdg.mint(address(nvdaVault), 100_000e6);
+
+        // The locked shares keep supply large enough that the victim is not rounded away, and the attacker holds
+        // nothing to profit with. The donation ends up with the locked shares, not with the attacker.
+        vm.prank(lp1);
+        uint256 shares = nvdaVault.deposit(200_000e6, 0, 0, lp1);
+        assertGt(shares, 0);
+        assertEq(nvdaVault.balanceOf(lp2), 0);
+        vm.prank(lp1);
+        (uint256 quoteOut,) = nvdaVault.withdraw(shares, lp1);
+        assertApproxEqAbs(quoteOut, 200_000e6, 1);
     }
 }

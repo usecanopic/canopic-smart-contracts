@@ -176,6 +176,7 @@ There is no mainnet deployment yet. Launching there needs real addresses for `US
 - Regardless of the regime, and for every parameter combination `SettingsTimelock` permits, neither a vault fill nor a maker fill can settle beyond the tier's oracle band.
 - Redemptions from a vault are always paid in kind and pro-rata, and they go through under all circumstances, including a halted market, a guardian pause, a retired market or an expired attestation. Liquidity providers are never trapped.
 - Value per share cannot decrease as a result of swaps. Rounding on share mints and burns always favours the vault.
+- A vault's first deposit permanently locks `LOCKED_SHARES` out of its own mint, a negligible amount of value, so share supply can never be shrunk far enough for a donation to inflate the value per share.
 - No fill may move a vault beyond its inventory band, and if price movement has already pushed it past the band, no fill may push it further. A preview always matches the resulting fill exactly. In practice this means the inventory-worsening side becomes one-sided rather than absorbing flow indefinitely, while the inventory-correcting side brings the vault back inside the band.
 - A vault only ever reads the feed assigned to the very token it holds; wrapped tokens and derived rates play no part in pricing.
 - Quotes are itemised on-chain, and the mid, spread, skew and fee captured in the fill event agree with the quote that produced them.

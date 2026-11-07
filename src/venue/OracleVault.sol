@@ -35,6 +35,12 @@ contract OracleVault is ERC20, ReentrancyGuard {
     /// @dev Multiplier converting the first deposit's value (in quote units) into shares with 18 decimals.
     uint256 internal immutable shareScale;
 
+    /// @notice Shares locked away for good on a vault's first deposit, worth a tiny fraction of a cent. With supply
+    ///         unable to fall below this, nobody can shrink it to a few units and then inflate the value per share
+    ///         with a direct transfer, which would otherwise let rounding take value from the next depositor.
+    uint256 public constant LOCKED_SHARES = 1e15;
+    address internal constant LOCKED_SHARES_HOLDER = address(0xdEaD);
+
     /// @notice Per UTC day index, the quote-token notional already traded, compared with the market's daily cap.
     mapping(uint256 => uint256) public dailyVolume;
 
@@ -133,12 +139,13 @@ contract OracleVault is ERC20, ReentrancyGuard {
         if (total + value > mkt.tvlCap) revert TvlCapExceeded();
 
         uint256 supply = totalSupply();
-        shares = supply == 0 ? value * shareScale : value * supply / total;
+        shares = _sharesFor(value, supply, total);
         if (shares == 0) revert ZeroShares();
         if (shares < minShares) revert Slippage(shares, minShares);
 
         if (quoteAmount != 0) quoteToken.safeTransferFrom(msg.sender, address(this), quoteAmount);
         if (tokenAmount != 0) token.safeTransferFrom(msg.sender, address(this), tokenAmount);
+        if (supply == 0) _mint(LOCKED_SHARES_HOLDER, LOCKED_SHARES);
         _mint(receiver, shares);
         emit Deposited(msg.sender, receiver, quoteAmount, tokenAmount, shares);
     }
@@ -237,7 +244,7 @@ contract OracleVault is ERC20, ReentrancyGuard {
         uint256 mid = _liveMid();
         uint256 value = quoteAmount + tokenAmount * mid / 10 ** tokenDec;
         uint256 supply = totalSupply();
-        return supply == 0 ? value * shareScale : value * supply / _totalValue(mid);
+        return _sharesFor(value, supply, supply == 0 ? 0 : _totalValue(mid));
     }
 
     /// @notice Assets that redeeming `shares` would pay out right now. Like `withdraw`, it looks only at balances
@@ -389,6 +396,14 @@ contract OracleVault is ERC20, ReentrancyGuard {
             feeBps: fee.swapFeeBps,
             session: q.session
         });
+    }
+
+    /// @dev Shares due to the depositor. The first deposit pays for `LOCKED_SHARES` out of its own mint, and one too
+    ///      small to cover them yields zero, which `deposit` refuses.
+    function _sharesFor(uint256 value, uint256 supply, uint256 total) internal view returns (uint256) {
+        if (supply != 0) return value * supply / total;
+        uint256 gross = value * shareScale;
+        return gross > LOCKED_SHARES ? gross - LOCKED_SHARES : 0;
     }
 
     /// @dev How far, in bps and without sign, a token value ratio sits from the 50% target.

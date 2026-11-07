@@ -122,6 +122,9 @@ contract AttestationBook is IAttestationProvider {
         // Revoking a missing record would create a blank entry and emit an event with a zero uid. A mistyped
         // address from an issuer ought to fail visibly rather than muddy the log.
         if (a.uid == bytes32(0)) revert NotAttested();
+        // Cohorts can overlap, so a batch may well name an account that has already gone. Skipping it keeps the
+        // batch from failing and the log down to one revocation per attestation.
+        if (a.revoked) return;
         a.revoked = true;
         emit Revoked(account, role, a.uid, msg.sender);
     }

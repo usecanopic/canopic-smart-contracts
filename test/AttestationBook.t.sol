@@ -156,4 +156,22 @@ contract AttestationBookTest is Fixture {
         attestations.attest(outsider, Roles.RELAYER, "LT", 2, uint64(block.timestamp + 1 days));
         assertTrue(eligibility.isEligible(outsider, Roles.RELAYER));
     }
+
+    function test_revokingTwiceEmitsNothingNew() public {
+        vm.startPrank(issuer);
+        attestations.revoke(trader, Roles.TRADER);
+
+        vm.recordLogs();
+        attestations.revoke(trader, Roles.TRADER);
+        assertEq(vm.getRecordedLogs().length, 0);
+
+        // A batch overlapping an earlier revocation still goes through for everyone else.
+        attestations.attest(lp1, Roles.TRADER, "LT", 2, uint64(block.timestamp + 1 days));
+        address[] memory accounts = new address[](2);
+        accounts[0] = trader;
+        accounts[1] = lp1;
+        attestations.revokeBatch(accounts, Roles.TRADER);
+        vm.stopPrank();
+        assertFalse(eligibility.isEligible(lp1, Roles.TRADER));
+    }
 }

@@ -42,7 +42,7 @@ contract MarketHoursTest is Fixture {
     }
 
     function test_extendedSessionMultiplier() public {
-        nvda.setMarketStatus(2);
+        nvda.setMarketStatus(1);
         (, Types.Breakdown memory b) = nvdaVault.quoteSwap(true, 10_000e6);
         assertEq(uint8(b.session), uint8(Types.Session.Extended));
         assertEq(b.halfSpreadBps, 15); // extended hours apply a 1.5x factor to the 10 bps base half-spread
@@ -435,5 +435,24 @@ contract MarketHoursTest is Fixture {
         vm.prank(lp1);
         (uint256 quoteOut,) = nvdaVault.withdraw(lpShares, lp1);
         assertGt(quoteOut, 0);
+    }
+
+    function test_statusCodesMapToTheRightSession() public {
+        nvda.setMarketStatus(2);
+        assertEq(uint8(oracle.quote(address(nvda)).session), uint8(Types.Session.Regular));
+
+        // Pre-market, post-market and overnight are all thinner than regular hours.
+        uint8[3] memory extended = [1, 3, 4];
+        for (uint256 i = 0; i < extended.length; i++) {
+            nvda.setMarketStatus(extended[i]);
+            assertEq(uint8(oracle.quote(address(nvda)).session), uint8(Types.Session.Extended));
+        }
+
+        // Closed, unknown and anything unrecognised take the most conservative terms.
+        uint8[3] memory closed = [5, 0, 9];
+        for (uint256 i = 0; i < closed.length; i++) {
+            nvda.setMarketStatus(closed[i]);
+            assertEq(uint8(oracle.quote(address(nvda)).session), uint8(Types.Session.Closed));
+        }
     }
 }

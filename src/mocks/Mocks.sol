@@ -32,7 +32,7 @@ contract MockERC20 is ERC20 {
 contract MockStockToken is ERC20, IERC8056, IOracleHaltFlag, ISessionStatusSource {
     uint256 public multiplier = 1e18;
     bool public paused;
-    uint8 public status = 1; // codes follow Chainlink: regular uses 1, extended uses 2, closed uses 5
+    uint8 public status = 2; // codes follow Chainlink: 1 pre-market, 2 regular, 3 post-market, 4 overnight, 5 closed
 
     constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) {}
 

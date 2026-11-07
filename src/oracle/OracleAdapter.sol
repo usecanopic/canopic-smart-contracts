@@ -57,8 +57,10 @@ contract OracleAdapter is IOracleAdapter {
         uint32 extendedClose;
     }
 
-    uint8 internal constant CL_STATUS_CLOSED = 5;
-    uint8 internal constant CL_STATUS_EXTENDED = 2;
+    uint8 internal constant CL_STATUS_PRE_MARKET = 1;
+    uint8 internal constant CL_STATUS_REGULAR = 2;
+    uint8 internal constant CL_STATUS_POST_MARKET = 3;
+    uint8 internal constant CL_STATUS_OVERNIGHT = 4;
 
     ISettingsTimelock public immutable params;
     AggregatorV3Interface public sequencerFeed;
@@ -301,9 +303,13 @@ contract OracleAdapter is IOracleAdapter {
     function _session(FeedConfig storage c) internal view returns (Types.Session) {
         if (c.marketStatusSource != address(0)) {
             uint8 s = ISessionStatusSource(c.marketStatusSource).marketStatus();
-            if (s == CL_STATUS_CLOSED) return Types.Session.Closed;
-            if (s == CL_STATUS_EXTENDED) return Types.Session.Extended;
-            return Types.Session.Regular;
+            if (s == CL_STATUS_REGULAR) return Types.Session.Regular;
+            if (s == CL_STATUS_PRE_MARKET || s == CL_STATUS_POST_MARKET || s == CL_STATUS_OVERNIGHT) {
+                return Types.Session.Extended;
+            }
+            // Closed, and also unknown or unrecognised codes: when the status is in doubt the market gets the
+            // widest spread and the smallest clip, never the regular session's terms.
+            return Types.Session.Closed;
         }
         return _scheduledSession();
     }

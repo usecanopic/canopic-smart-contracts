@@ -25,7 +25,7 @@ interface IOracleHaltFlag {
 /// @notice Optional hook reporting whether the market is open, mirroring `marketStatus` from Chainlink Data
 ///         Streams v11 RWA.
 interface ISessionStatusSource {
-    /// @return status Chainlink status code, where 1 is the regular session, 2 is extended hours and 5 is closed.
+    /// @return status Chainlink status code: 0 unknown, 1 pre-market, 2 regular, 3 post-market, 4 overnight, 5 closed.
     function marketStatus() external view returns (uint8 status);
 }
 

@@ -105,12 +105,18 @@ contract MockPriceFeed is AggregatorV3Interface {
 /// @notice Stands in for a Data Streams report that passed verification by echoing back the most recently set price.
 contract MockStreamReader is IStreamReader {
     uint256 public price;
+    /// @dev Zero reports the current block time; anything else is returned as the observation time.
+    uint256 public observedAt;
 
     function set(uint256 p) external {
         price = p;
     }
 
+    function setObservedAt(uint256 t) external {
+        observedAt = t;
+    }
+
     function verify(address, bytes calldata) external view override returns (uint256, uint256) {
-        return (price, block.timestamp);
+        return (price, observedAt == 0 ? block.timestamp : observedAt);
     }
 }

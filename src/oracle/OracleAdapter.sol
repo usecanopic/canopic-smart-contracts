@@ -83,6 +83,7 @@ contract OracleAdapter is IOracleAdapter {
     error MarketHalted(address token);
     error StreamNotConfigured(address token);
     error StreamDivergence(uint256 feedPrice, uint256 streamPrice);
+    error StreamReportStale(uint256 observedAt);
 
     modifier onlyGovernance() {
         if (msg.sender != params.owner()) revert NotGovernance();
@@ -246,7 +247,12 @@ contract OracleAdapter is IOracleAdapter {
         // trusted, so no report is accepted until trading resumes.
         Quote memory q = quote(token);
         if (q.paused || q.stale || q.sequencerGrace) revert MarketHalted(token);
-        (uint256 raw,) = IStreamReader(c.streamAdapter).verify(token, report);
+        (uint256 raw, uint256 observedAt) = IStreamReader(c.streamAdapter).verify(token, report);
+        // A genuine signature only proves the price was true when observed. Without an age limit an old report
+        // could be replayed for as long as the market stayed within the divergence tolerance.
+        if (observedAt > block.timestamp || block.timestamp - observedAt > _stalenessBound(c, q.session)) {
+            revert StreamReportStale(observedAt);
+        }
         price = _scale(raw, c.feedDecimals, c.quoteDecimals);
         uint256 diff = price > q.price ? price - q.price : q.price - price;
         if (diff * Types.BPS / q.price > c.streamDivergenceBps) revert StreamDivergence(q.price, price);

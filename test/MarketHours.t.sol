@@ -455,4 +455,38 @@ contract MarketHoursTest is Fixture {
             assertEq(uint8(oracle.quote(address(nvda)).session), uint8(Types.Session.Closed));
         }
     }
+
+    function test_streamReportMustBeFresh() public {
+        MockStreamReader stream = new MockStreamReader();
+        stream.set(NVDA_PRICE_8);
+        vm.prank(gov);
+        oracle.configureFeed(
+            address(nvda),
+            address(usdg),
+            AggregatorV3Interface(address(nvdaFeed)),
+            1 hours,
+            2 hours,
+            4 days,
+            2500,
+            1 hours,
+            200,
+            address(nvda),
+            address(nvda),
+            address(nvda),
+            address(stream)
+        );
+
+        // The regular session allows one hour, so a report exactly that old still verifies.
+        uint256 limit = block.timestamp - 1 hours;
+        stream.setObservedAt(limit);
+        assertEq(oracle.verifyStreamReport(address(nvda), ""), NVDA_MID);
+
+        stream.setObservedAt(limit - 1);
+        vm.expectRevert(abi.encodeWithSelector(OracleAdapter.StreamReportStale.selector, limit - 1));
+        oracle.verifyStreamReport(address(nvda), "");
+
+        stream.setObservedAt(block.timestamp + 1);
+        vm.expectRevert(abi.encodeWithSelector(OracleAdapter.StreamReportStale.selector, block.timestamp + 1));
+        oracle.verifyStreamReport(address(nvda), "");
+    }
 }

@@ -13,6 +13,12 @@ import {MockStreamReader} from "../src/mocks/Mocks.sol";
 
 /// @notice Covers session regimes and halts: beyond regular hours spreads widen and the largest allowed clip
 ///         shrinks, and any oracle fault halts the market rather than allowing a faulty price to trade.
+contract RevertingHaltFlag {
+    function oraclePaused() external pure returns (bool) {
+        revert("source offline");
+    }
+}
+
 contract MarketHoursTest is Fixture {
     function setUp() public override {
         super.setUp();
@@ -397,5 +403,37 @@ contract MarketHoursTest is Fixture {
             address(0)
         );
         vm.stopPrank();
+    }
+
+    function test_unreadablePauseSourceHaltsTheMarket() public {
+        uint256 lpShares = nvdaVault.balanceOf(lp1);
+
+        address broken = address(new RevertingHaltFlag());
+        vm.prank(gov);
+        oracle.configureFeed(
+            address(nvda),
+            address(usdg),
+            AggregatorV3Interface(address(nvdaFeed)),
+            1 hours,
+            2 hours,
+            4 days,
+            2500,
+            1 hours,
+            200,
+            address(nvda),
+            broken,
+            address(nvda),
+            address(0)
+        );
+
+        assertTrue(oracle.quote(address(nvda)).paused);
+        assertFalse(oracle.isLive(address(nvda)));
+        vm.expectRevert(OracleVault.MarketHalted.selector);
+        nvdaVault.quoteSwap(true, 1_000e6);
+
+        // Exits never read the oracle, so a broken source cannot trap an LP.
+        vm.prank(lp1);
+        (uint256 quoteOut,) = nvdaVault.withdraw(lpShares, lp1);
+        assertGt(quoteOut, 0);
     }
 }

@@ -345,12 +345,15 @@ contract OracleAdapter is IOracleAdapter {
         return c.stalenessClosed;
     }
 
+    /// @dev A configured source that cannot answer counts as paused. The flag exists to stop trading through a
+    ///      corporate action, and a source that broke or was upgraded mid-event says nothing about whether one is
+    ///      underway. Withdrawals never read the oracle, so failing closed here leaves LP exits untouched.
     function _sourcePaused(FeedConfig storage c) internal view returns (bool) {
         if (c.pauseSource == address(0)) return false;
         try IOracleHaltFlag(c.pauseSource).oraclePaused() returns (bool p) {
             return p;
         } catch {
-            return false;
+            return true;
         }
     }
 

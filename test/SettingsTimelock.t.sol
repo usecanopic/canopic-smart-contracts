@@ -401,4 +401,48 @@ contract SettingsTimelockTest is Fixture {
         params.setPaused(false);
         assertFalse(params.swapsPaused());
     }
+
+    function test_queuedOperationLapsesAfterTheGracePeriod() public {
+        vm.prank(gov);
+        params.finishBootstrap();
+        bytes[] memory calls = _feeCall(5);
+        vm.prank(gov);
+        bytes32 id = params.schedule(calls, bytes32("late"), bytes32(0));
+
+        (uint64 eta,,,) = params.operations(id);
+        uint256 lastCall = uint256(eta) + params.GRACE_PERIOD();
+        vm.warp(lastCall);
+        assertTrue(params.operationReady(id));
+
+        vm.warp(lastCall + 1);
+        assertFalse(params.operationReady(id));
+        vm.prank(gov);
+        vm.expectRevert(SettingsTimelock.OperationExpired.selector);
+        params.execute(calls, bytes32("late"));
+
+        // A lapsed batch frees its id, so the same change can be queued again from the start.
+        vm.prank(gov);
+        assertEq(params.schedule(calls, bytes32("late"), bytes32(0)), id);
+        assertFalse(params.operationReady(id));
+    }
+
+    function test_operationExecutesOnTheLastDayOfItsGracePeriod() public {
+        vm.prank(gov);
+        params.finishBootstrap();
+        bytes[] memory calls = _feeCall(5);
+        vm.prank(gov);
+        bytes32 id = params.schedule(calls, bytes32("edge"), bytes32(0));
+
+        (uint64 eta,,,) = params.operations(id);
+        vm.warp(uint256(eta) + params.GRACE_PERIOD());
+        vm.prank(gov);
+        params.execute(calls, bytes32("edge"));
+        assertEq(params.feeParams().swapFeeBps, 5);
+
+        // An executed batch never lapses, which keeps it from being queued and replayed later.
+        vm.warp(block.timestamp + 365 days);
+        vm.prank(gov);
+        vm.expectRevert(SettingsTimelock.OperationExists.selector);
+        params.schedule(calls, bytes32("edge"), bytes32(0));
+    }
 }

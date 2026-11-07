@@ -24,6 +24,9 @@ contract SettingsTimelock is ISettingsTimelock {
     ///         lock settings for years; since changing the delay also goes through the queue, a mistyped value
     ///         would be impossible to fix.
     uint256 public constant MAX_DELAY = 30 days;
+    /// @notice How long a batch stays executable once its eta has passed. Without a limit, an approved change could
+    ///         sit in the queue for months and land long after the reasoning behind it had gone out of date.
+    uint256 public constant GRACE_PERIOD = 14 days;
 
     address public override owner;
     address public override guardian;
@@ -81,6 +84,7 @@ contract SettingsTimelock is ISettingsTimelock {
     error OperationExists();
     error OperationNotReady();
     error OperationNotFound();
+    error OperationExpired();
     error CallFailed(uint256 index, bytes reason);
     error InvalidBps();
     error InvalidTier();
@@ -131,19 +135,21 @@ contract SettingsTimelock is ISettingsTimelock {
     }
 
     /// @notice True if batch `id` can be executed at this moment, meaning it was queued, is neither cancelled nor
-    ///         done, and its eta has passed. Lets keepers check readiness without dry-running `execute` for a revert.
+    ///         done, its eta has passed and its grace period has not. Lets keepers check readiness without
+    ///         dry-running `execute` for a revert.
     function operationReady(bytes32 id) external view returns (bool) {
         Operation storage op = operations[id];
-        return op.eta != 0 && !op.cancelled && !op.executed && block.timestamp >= op.eta;
+        return op.eta != 0 && !op.cancelled && !op.executed && block.timestamp >= op.eta && !_lapsed(op);
     }
 
     /// @notice Queues a set of setter calls for later execution. Pass the hash of the public write-up that
     ///         justifies the change as `rationale`.
     function schedule(bytes[] calldata calls, bytes32 salt, bytes32 rationale) external onlyOwner returns (bytes32 id) {
         id = operationId(calls, salt);
-        // Only a pending or executed batch occupies its id. Cancelled batches free it up, so the same salt can
-        // be reused to queue them a second time.
-        if (operations[id].eta != 0 && !operations[id].cancelled) revert OperationExists();
+        // Only a pending or executed batch occupies its id. Cancelled and lapsed batches free it up, so the same
+        // salt can be reused to queue them a second time.
+        Operation storage existing = operations[id];
+        if (existing.eta != 0 && !existing.cancelled && !_lapsed(existing)) revert OperationExists();
         uint64 eta = uint64(block.timestamp + delay);
         operations[id] = Operation({eta: eta, executed: false, cancelled: false, rationale: rationale});
         emit OperationScheduled(id, eta, rationale, calls);
@@ -155,6 +161,7 @@ contract SettingsTimelock is ISettingsTimelock {
         Operation storage op = operations[id];
         if (op.eta == 0 || op.cancelled || op.executed) revert OperationNotFound();
         if (block.timestamp < op.eta) revert OperationNotReady();
+        if (_lapsed(op)) revert OperationExpired();
         op.executed = true;
         for (uint256 i = 0; i < calls.length; i++) {
             (bool ok, bytes memory reason) = address(this).call(calls[i]);
@@ -168,6 +175,11 @@ contract SettingsTimelock is ISettingsTimelock {
         if (op.eta == 0 || op.executed || op.cancelled) revert OperationNotFound();
         op.cancelled = true;
         emit OperationCancelled(id);
+    }
+
+    /// @dev An executed batch is finished rather than lapsed, so its id stays occupied for good.
+    function _lapsed(Operation storage op) internal view returns (bool) {
+        return !op.executed && block.timestamp > op.eta + GRACE_PERIOD;
     }
 
     /// @notice Ends bootstrap so that every setter must go through the delay from now on. This cannot be undone.

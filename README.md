@@ -167,7 +167,7 @@ There is no mainnet deployment yet. Launching there needs real addresses for `US
 
 ## Administration and upgrades
 
-- At deployment `SettingsTimelock` is in bootstrap mode, letting the owner invoke setters immediately. Calling `finishBootstrap()` cannot be undone; from then on, each update must be queued with `schedule` and applied with `execute` after the configured delay elapses.
+- At deployment `SettingsTimelock` is in bootstrap mode, letting the owner invoke setters immediately. Calling `finishBootstrap()` cannot be undone; from then on, each update must be queued with `schedule` and applied with `execute` after the configured delay elapses. A queued batch lapses if it has not been executed within 14 days of its eta, and has to be queued again.
 - Pausing swaps is the guardian's one and only capability. No role exists that could freeze deposits, redemptions or the cancelling of RFQ quotes.
 - There are no proxies or admin keys on `SwapRouter`, `OracleVault`, `VaultFactory` or `RfqSettler`. Upgrading means deploying fresh contracts, and each LP chooses independently whether to migrate.
 

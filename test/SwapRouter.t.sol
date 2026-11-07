@@ -88,7 +88,7 @@ contract SwapRouterTest is Fixture {
         // Set the fee high enough to shift inventory figures, widen the band to accommodate that, and raise the
         // clip so one sell is able to reach the band limit.
         vm.startPrank(gov);
-        params.setFeeParams(ISettingsTimelock.FeeParams({swapFeeBps: 1000, rfqFeeBps: 2, spreadShareBps: 1000}));
+        params.setFeeParams(ISettingsTimelock.FeeParams({swapFeeBps: 100, rfqFeeBps: 2, spreadShareBps: 1000}));
         params.setTierConfig(
             1,
             ISettingsTimelock.TierConfig({
@@ -105,9 +105,9 @@ contract SwapRouterTest is Fixture {
 
         // For sells, the fee comes out of gross proceeds yet leaves the vault for ProtocolTreasury together with
         // the spread share, so vault quote holdings fall by the full gross amount. Measured like this, the
-        // 500k/500k vault overshoots its 20% band by a small margin after a 208k sell. Had the simulation kept the fee inside
+        // 500k/500k vault overshoots its 20% band by a small margin after a 201k sell. Had the simulation kept the fee inside
         // the vault, the trade would have looked within the band and been filled.
-        uint256 pastTheEdge = 208_000e6 * 1e18 / NVDA_MID;
+        uint256 pastTheEdge = 201_000e6 * 1e18 / NVDA_MID;
         vm.expectRevert(OracleVault.InventoryBandExceeded.selector);
         nvdaVault.quoteSwap(false, pastTheEdge);
 

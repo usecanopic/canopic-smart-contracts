@@ -87,6 +87,7 @@ contract SettingsTimelock is ISettingsTimelock {
     error OperationExpired();
     error CallFailed(uint256 index, bytes reason);
     error InvalidBps();
+    error FeeTooHigh();
     error InvalidTier();
     error InvalidCap();
     error DelayTooShort();
@@ -297,8 +298,14 @@ contract SettingsTimelock is ISettingsTimelock {
         emit ParamChanged("riskParams", bytes32(0), abi.encode(p));
     }
 
+    /// @notice Largest swap or RFQ fee governance can ever set, at 1%. The vault's oracle band already limits the
+    ///         swap fee, but nothing else limits the RFQ fee, and traders should not have to watch the queue to know
+    ///         what the most they can be charged is.
+    uint256 public constant MAX_FEE_BPS = 100;
+
     function setFeeParams(FeeParams calldata p) external onlySelf {
-        if (p.swapFeeBps > Types.BPS || p.rfqFeeBps > Types.BPS || p.spreadShareBps > Types.BPS) revert InvalidBps();
+        if (p.swapFeeBps > MAX_FEE_BPS || p.rfqFeeBps > MAX_FEE_BPS) revert FeeTooHigh();
+        if (p.spreadShareBps > Types.BPS) revert InvalidBps();
         _feeParams = p;
         emit ParamChanged("feeParams", bytes32(0), abi.encode(p));
     }

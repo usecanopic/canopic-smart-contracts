@@ -445,4 +445,19 @@ contract SettingsTimelockTest is Fixture {
         vm.expectRevert(SettingsTimelock.OperationExists.selector);
         params.schedule(calls, bytes32("edge"), bytes32(0));
     }
+
+    function test_feesAreCappedAtOnePercent() public {
+        vm.startPrank(gov);
+        params.setFeeParams(ISettingsTimelock.FeeParams({swapFeeBps: 100, rfqFeeBps: 100, spreadShareBps: 10_000}));
+
+        vm.expectRevert(SettingsTimelock.FeeTooHigh.selector);
+        params.setFeeParams(ISettingsTimelock.FeeParams({swapFeeBps: 101, rfqFeeBps: 2, spreadShareBps: 1000}));
+
+        vm.expectRevert(SettingsTimelock.FeeTooHigh.selector);
+        params.setFeeParams(ISettingsTimelock.FeeParams({swapFeeBps: 2, rfqFeeBps: 101, spreadShareBps: 1000}));
+
+        vm.expectRevert(SettingsTimelock.InvalidBps.selector);
+        params.setFeeParams(ISettingsTimelock.FeeParams({swapFeeBps: 2, rfqFeeBps: 2, spreadShareBps: 10_001}));
+        vm.stopPrank();
+    }
 }

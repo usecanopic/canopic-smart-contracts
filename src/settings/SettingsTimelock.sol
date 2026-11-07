@@ -228,7 +228,9 @@ contract SettingsTimelock is ISettingsTimelock {
         if (msg.sender != guardian && msg.sender != owner && msg.sender != address(this)) revert NotGuardian();
         // Restarting is deliberately out of the guardian's reach: it may halt trading at once, but a compromised
         // guardian key cannot lift a pause while an incident is still unfolding.
-        if (!swaps && msg.sender == guardian) revert NotOwner();
+        // The check keys off the owner rather than the guardian alone, because one account may hold both roles,
+        // as it does during a guarded launch, and that account must still be able to restart trading.
+        if (!swaps && msg.sender != owner && msg.sender == guardian) revert NotOwner();
         swapsPaused = swaps;
         emit EmergencyPause(swaps, msg.sender);
     }

@@ -379,4 +379,26 @@ contract SettingsTimelockTest is Fixture {
         params.transferOwnership(gov);
         vm.stopPrank();
     }
+
+    function test_ownerHoldingTheGuardianKeyCanLiftAPause() public {
+        SettingsTimelock shared = new SettingsTimelock(gov, gov, 1 days);
+        vm.startPrank(gov);
+        shared.setPaused(true);
+        shared.setPaused(false);
+        vm.stopPrank();
+        assertFalse(shared.swapsPaused());
+    }
+
+    function test_separateGuardianStillCannotLiftAPause() public {
+        vm.prank(guardian);
+        params.setPaused(true);
+
+        vm.prank(guardian);
+        vm.expectRevert(SettingsTimelock.NotOwner.selector);
+        params.setPaused(false);
+
+        vm.prank(gov);
+        params.setPaused(false);
+        assertFalse(params.swapsPaused());
+    }
 }

@@ -311,6 +311,9 @@ contract SettingsTimelock is ISettingsTimelock {
     }
 
     function setAttestationIssuer(address issuer, bool ok) external onlySelf {
+        // Nobody can sign as address zero, so approving it can only be a slip, such as an unset variable in a
+        // proposal script, that leaves the intended issuer without the right to attest.
+        if (ok && issuer == address(0)) revert ZeroAddress();
         attestationIssuer[issuer] = ok;
         emit ParamChanged("attestationIssuer", bytes32(uint256(uint160(issuer))), abi.encode(ok));
     }

@@ -469,4 +469,15 @@ contract SettingsTimelockTest is Fixture {
         MockERC20 eighteen = new MockERC20("Plain Dollar", "PLAIN", 18);
         new VaultFactory(params, eligibility, oracle, address(fees), address(eighteen));
     }
+
+    function test_zeroAddressCannotBeApprovedAsIssuer() public {
+        vm.startPrank(gov);
+        vm.expectRevert(SettingsTimelock.ZeroAddress.selector);
+        params.setAttestationIssuer(address(0), true);
+
+        // Clearing it stays allowed, so the call is harmless when tidying up.
+        params.setAttestationIssuer(address(0), false);
+        vm.stopPrank();
+        assertFalse(params.attestationIssuer(address(0)));
+    }
 }

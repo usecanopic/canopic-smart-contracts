@@ -77,6 +77,7 @@ contract OracleVault is ERC20, ReentrancyGuard {
     error ZeroAmount();
     error ZeroShares();
     error ZeroAddress();
+    error InvalidReceiver();
     error Slippage(uint256 shares, uint256 minShares);
     error WithdrawSlippage(uint256 quoteOut, uint256 tokenOut);
     error BandExceeded();
@@ -178,6 +179,9 @@ contract OracleVault is ERC20, ReentrancyGuard {
         // Many ERC-20 tokens will transfer to address(0) without complaint, destroying the funds. A forgotten
         // receiver would therefore quietly lose the LP's assets, so it is rejected here.
         if (receiver == address(0)) revert ZeroAddress();
+        // Paying the vault itself would burn the LP's shares and leave their assets in the pool, quietly handing
+        // that value to the remaining LPs.
+        if (receiver == address(this)) revert InvalidReceiver();
         (quoteOut, tokenOut) = previewWithdraw(shares);
         _burn(msg.sender, shares);
         if (quoteOut != 0) quoteToken.safeTransfer(receiver, quoteOut);

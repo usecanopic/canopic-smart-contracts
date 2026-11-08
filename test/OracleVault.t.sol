@@ -323,4 +323,16 @@ contract OracleVaultTest is Fixture {
         (uint256 quoteOut,) = nvdaVault.withdraw(shares, lp1);
         assertApproxEqAbs(quoteOut, 200_000e6, 1);
     }
+
+    function test_withdrawRefusesTheVaultAsReceiver() public {
+        uint256 shares = _seed(nvdaVault, NVDA_MID);
+        vm.prank(lp1);
+        vm.expectRevert(OracleVault.InvalidReceiver.selector);
+        nvdaVault.withdraw(shares, address(nvdaVault));
+
+        vm.prank(lp1);
+        vm.expectRevert(OracleVault.InvalidReceiver.selector);
+        nvdaVault.withdrawWithMinimums(shares, address(nvdaVault), 0, 0);
+        assertEq(nvdaVault.balanceOf(lp1), shares);
+    }
 }

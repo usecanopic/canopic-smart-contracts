@@ -147,7 +147,8 @@ contract RfqSettler is EIP712 {
 
     /// @notice Tells whether `taker` could settle this quote right now, judging only the quote itself: it must be
     ///         unexpired, open to the taker (or to all), on a live nonce, correctly signed, and from a maker who
-    ///         still has the role. Market state and balances are out of scope. Handy for clearing dead quotes.
+    ///         still has the role, with the quote asset on exactly one side. Market state and balances are out of
+    ///         scope. Handy for clearing dead quotes.
     function quoteFillable(Types.MakerQuote calldata q, bytes calldata signature, address taker)
         external
         view
@@ -156,6 +157,8 @@ contract RfqSettler is EIP712 {
         if (q.amountIn == 0 || q.amountOut == 0 || block.timestamp > q.expiry) return false;
         if (q.taker != address(0) && q.taker != taker) return false;
         if (q.maker == taker) return false;
+        // Settlement refuses a quote unless the quote asset is on exactly one side, so this view does too.
+        if ((q.tokenIn == quoteToken) == (q.tokenOut == quoteToken)) return false;
         if (nonceUsed[q.maker][q.nonce] || q.nonce < minNonce[q.maker]) return false;
         if (!SignatureChecker.isValidSignatureNow(q.maker, quoteDigest(q), signature)) return false;
         return eligibility.isEligible(q.maker, Roles.MAKER);

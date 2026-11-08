@@ -329,4 +329,13 @@ contract RfqSettlerTest is Fixture {
         vm.warp(q.expiry + 1);
         assertFalse(rfq.quoteFillable(q, sig, trader));
     }
+
+    function test_quoteFillableNeedsTheQuoteAssetOnOneSide() public {
+        // Stock for stock never touches the quote asset, and quote for quote touches it twice; settle refuses both.
+        Types.MakerQuote memory stockOnly = _makerQuote(address(spy), address(nvda), 1e18, 3e18, 6);
+        assertFalse(rfq.quoteFillable(stockOnly, _sign(stockOnly), trader));
+
+        Types.MakerQuote memory quoteOnly = _makerQuote(address(usdg), address(usdg), 1_000e6, 1_000e6, 7);
+        assertFalse(rfq.quoteFillable(quoteOnly, _sign(quoteOnly), trader));
+    }
 }

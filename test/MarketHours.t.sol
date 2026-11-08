@@ -489,4 +489,14 @@ contract MarketHoursTest is Fixture {
         vm.expectRevert(abi.encodeWithSelector(OracleAdapter.StreamReportStale.selector, block.timestamp + 1));
         oracle.verifyStreamReport(address(nvda), "");
     }
+
+    function test_pauseAndResumeNeedAConfiguredFeed() public {
+        vm.startPrank(gov);
+        vm.expectRevert(abi.encodeWithSelector(IOracleAdapter.FeedNotConfigured.selector, outsider));
+        oracle.pause(outsider);
+
+        vm.expectRevert(abi.encodeWithSelector(IOracleAdapter.FeedNotConfigured.selector, outsider));
+        oracle.resume(outsider);
+        vm.stopPrank();
+    }
 }

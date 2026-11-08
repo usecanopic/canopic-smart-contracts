@@ -176,11 +176,15 @@ contract OracleAdapter is IOracleAdapter {
     ///         governance's acceptance of today's price; retaining the reference from before the pause would just
     ///         trip the cap again on the same jump that has now been approved.
     function resume(address token) external onlyGovernance {
+        _requireConfigured(token);
         delete _checkpoints[token];
         emit MarketResumed(token);
     }
 
+    /// @dev Pausing a token with no feed would emit an event that looks like a real halt while protecting nothing,
+    ///      which is how a mistyped address in an incident goes unnoticed. Both calls therefore insist on a feed.
     function pause(address token) external onlyGovernance {
+        _requireConfigured(token);
         // Nothing to do if the market is paused already; bailing out keeps a second pause event out of the logs.
         if (_checkpoints[token].paused) return;
         _checkpoints[token].paused = true;
@@ -299,6 +303,10 @@ contract OracleAdapter is IOracleAdapter {
         if (s.regularOpen >= s.regularClose || s.regularClose > 1 days) revert InvalidSchedule();
         if (s.extendedOpen > s.regularOpen || s.extendedClose < s.regularClose) revert InvalidSchedule();
         if (s.extendedClose >= 1 days + s.extendedOpen) revert InvalidSchedule();
+    }
+
+    function _requireConfigured(address token) internal view {
+        if (!_feeds[token].configured) revert FeedNotConfigured(token);
     }
 
     function _scale(uint256 answer, uint8 fromDec, uint8 toDec) internal pure returns (uint256) {

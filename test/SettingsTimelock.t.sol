@@ -9,7 +9,7 @@ import {VaultFactory} from "../src/venue/VaultFactory.sol";
 import {SwapRouter} from "../src/venue/SwapRouter.sol";
 import {IOracleAdapter} from "../src/interfaces/IOracleAdapter.sol";
 import {AttestationBook} from "../src/eligibility/AttestationBook.sol";
-import {MockStockToken} from "../src/mocks/Mocks.sol";
+import {MockERC20, MockStockToken} from "../src/mocks/Mocks.sol";
 
 /// @notice Checks how settings changes are governed: after bootstrap the timelock is the sole route to every
 ///         setter, the guardian's power is limited to pausing, and values the pricing maths could not handle
@@ -459,5 +459,14 @@ contract SettingsTimelockTest is Fixture {
         vm.expectRevert(SettingsTimelock.InvalidBps.selector);
         params.setFeeParams(ISettingsTimelock.FeeParams({swapFeeBps: 2, rfqFeeBps: 2, spreadShareBps: 10_001}));
         vm.stopPrank();
+    }
+
+    function test_factoryRefusesAQuoteTokenAboveEighteenDecimals() public {
+        MockERC20 wide = new MockERC20("Wide Dollar", "WIDE", 24);
+        vm.expectRevert(VaultFactory.QuoteDecimalsUnsupported.selector);
+        new VaultFactory(params, eligibility, oracle, address(fees), address(wide));
+
+        MockERC20 eighteen = new MockERC20("Plain Dollar", "PLAIN", 18);
+        new VaultFactory(params, eligibility, oracle, address(fees), address(eighteen));
     }
 }

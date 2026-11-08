@@ -39,6 +39,7 @@ contract VaultFactory {
     error MarketNotConfigured();
     error QuoteAssetNotListable();
     error ZeroAddress();
+    error QuoteDecimalsUnsupported();
 
     modifier onlyGovernance() {
         if (msg.sender != params.owner()) revert NotGovernance();
@@ -56,6 +57,9 @@ contract VaultFactory {
             address(params_) == address(0) || address(eligibility_) == address(0) || address(oracle_) == address(0)
                 || feeTreasury_ == address(0) || quoteToken_ == address(0)
         ) revert ZeroAddress();
+        // Vault shares carry 18 decimals and are scaled up from the quote token's. A quote token with more decimals
+        // than that would deploy fine here and then make every createMarket panic, so it is turned away now.
+        if (IERC20Metadata(quoteToken_).decimals() > 18) revert QuoteDecimalsUnsupported();
         params = params_;
         eligibility = eligibility_;
         oracle = oracle_;

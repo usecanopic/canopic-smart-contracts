@@ -396,6 +396,9 @@ contract OracleAdapter is IOracleAdapter {
         // A zero startedAt indicates the round was never initialised. Without this guard the subtraction below
         // would see uptime dating back to 1970 and incorrectly reopen trading.
         if (startedAt == 0) return true;
+        // A status flip dated after the current block cannot be trusted, and subtracting it would panic and take
+        // `quote` down with an arithmetic error. Holding the market in grace reports the same halt cleanly.
+        if (startedAt > block.timestamp) return true;
         uint256 grace = params.riskParams().sequencerGrace;
         return block.timestamp - startedAt < grace;
     }

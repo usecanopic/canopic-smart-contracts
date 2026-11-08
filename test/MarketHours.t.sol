@@ -499,4 +499,14 @@ contract MarketHoursTest is Fixture {
         oracle.resume(outsider);
         vm.stopPrank();
     }
+
+    function test_futureDatedSequencerRoundHoldsTheGrace() public {
+        sequencer.setWithTimestamps(0, block.timestamp + 1, block.timestamp);
+
+        // The quote still answers, flagged as in grace, rather than reverting with an underflow.
+        assertTrue(oracle.quote(address(nvda)).sequencerGrace);
+        assertFalse(oracle.isLive(address(nvda)));
+        vm.expectRevert(OracleVault.MarketHalted.selector);
+        nvdaVault.quoteSwap(true, 1_000e6);
+    }
 }

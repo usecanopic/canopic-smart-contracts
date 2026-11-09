@@ -480,4 +480,10 @@ contract SettingsTimelockTest is Fixture {
         vm.stopPrank();
         assertFalse(params.attestationIssuer(address(0)));
     }
+
+    function test_emptyBatchCannotBeScheduled() public {
+        vm.prank(gov);
+        vm.expectRevert(SettingsTimelock.EmptyOperation.selector);
+        params.schedule(new bytes[](0), bytes32("nothing"), bytes32(0));
+    }
 }

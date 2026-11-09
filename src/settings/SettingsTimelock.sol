@@ -85,6 +85,7 @@ contract SettingsTimelock is ISettingsTimelock {
     error OperationNotReady();
     error OperationNotFound();
     error OperationExpired();
+    error EmptyOperation();
     error CallFailed(uint256 index, bytes reason);
     error InvalidBps();
     error FeeTooHigh();
@@ -146,6 +147,9 @@ contract SettingsTimelock is ISettingsTimelock {
     /// @notice Queues a set of setter calls for later execution. Pass the hash of the public write-up that
     ///         justifies the change as `rationale`.
     function schedule(bytes[] calldata calls, bytes32 salt, bytes32 rationale) external onlyOwner returns (bytes32 id) {
+        // An empty batch would sit in the queue and announce a change that does nothing, which only confuses anyone
+        // watching the queue for what governance is about to do.
+        if (calls.length == 0) revert EmptyOperation();
         id = operationId(calls, salt);
         // Only a pending or executed batch occupies its id. Cancelled and lapsed batches free it up, so the same
         // salt can be reused to queue them a second time.

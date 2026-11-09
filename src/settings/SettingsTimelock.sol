@@ -275,6 +275,9 @@ contract SettingsTimelock is ISettingsTimelock {
     }
 
     function setMarketConfig(address token, MarketConfig calldata cfg) external onlySelf {
+        // No token lives at address zero, so a config written there comes from a proposal with an unset variable,
+        // and the market it was meant for is left unconfigured.
+        if (token == address(0)) revert ZeroAddress();
         if (cfg.enabled && !_tiers[cfg.tier].enabled) revert InvalidTier();
         // The logic mirrors the tier check: zero daily volume stops all fills and zero TVL stops all deposits.
         // To wind a market down, set `enabled` to false instead of setting its caps to zero.

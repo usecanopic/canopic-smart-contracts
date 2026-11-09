@@ -504,4 +504,13 @@ contract SettingsTimelockTest is Fixture {
         vm.expectRevert(SettingsTimelock.NotOwner.selector);
         params.setPaused(false);
     }
+
+    function test_marketConfigRefusesTheZeroToken() public {
+        vm.prank(gov);
+        vm.expectRevert(SettingsTimelock.ZeroAddress.selector);
+        params.setMarketConfig(
+            address(0),
+            ISettingsTimelock.MarketConfig({tier: 1, dailyVolumeCap: 1_000e6, tvlCap: 1_000e6, enabled: true})
+        );
+    }
 }

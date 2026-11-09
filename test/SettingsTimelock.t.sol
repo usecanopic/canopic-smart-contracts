@@ -486,4 +486,22 @@ contract SettingsTimelockTest is Fixture {
         vm.expectRevert(SettingsTimelock.EmptyOperation.selector);
         params.schedule(new bytes[](0), bytes32("nothing"), bytes32(0));
     }
+
+    function test_repeatEmergencyPauseLeavesOneRecord() public {
+        vm.prank(guardian);
+        params.setPaused(true);
+
+        vm.recordLogs();
+        vm.prank(gov);
+        params.setPaused(true);
+        assertEq(vm.getRecordedLogs().length, 0);
+        assertTrue(params.swapsPaused());
+
+        // The guardian's restriction still applies even when the call would change nothing.
+        vm.prank(gov);
+        params.setPaused(false);
+        vm.prank(guardian);
+        vm.expectRevert(SettingsTimelock.NotOwner.selector);
+        params.setPaused(false);
+    }
 }

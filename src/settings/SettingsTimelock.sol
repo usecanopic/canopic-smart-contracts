@@ -248,6 +248,9 @@ contract SettingsTimelock is ISettingsTimelock {
         // The check keys off the owner rather than the guardian alone, because one account may hold both roles,
         // as it does during a guarded launch, and that account must still be able to restart trading.
         if (!swaps && msg.sender != owner && msg.sender == guardian) revert NotOwner();
+        // Repeating the current state changes nothing. Returning early keeps a second guardian and owner reacting
+        // to the same incident from leaving two pause records, the same way the oracle's per-market pause behaves.
+        if (swapsPaused == swaps) return;
         swapsPaused = swaps;
         emit EmergencyPause(swaps, msg.sender);
     }

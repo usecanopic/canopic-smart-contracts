@@ -52,6 +52,7 @@ contract RfqSettler is EIP712 {
     event MinNonceRaised(address indexed maker, uint256 minNonce);
 
     error NotRouter();
+    error SwapsPaused();
     error QuoteExpired();
     error WrongTaker();
     error SelfTrade();
@@ -106,6 +107,9 @@ contract RfqSettler is EIP712 {
         onlyRouter
         returns (uint256 netOut)
     {
+        // The router checks the pause first, and settlement checks it again, as the vault does. Makers' fills
+        // then stop with the rest of the venue even if a future router left the check out.
+        if (params.swapsPaused()) revert SwapsPaused();
         if (q.amountIn == 0 || q.amountOut == 0) revert ZeroAmount();
         if (block.timestamp > q.expiry) revert QuoteExpired();
         if (q.taker != address(0) && q.taker != taker) revert WrongTaker();

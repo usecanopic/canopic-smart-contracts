@@ -338,4 +338,17 @@ contract RfqSettlerTest is Fixture {
         Types.MakerQuote memory quoteOnly = _makerQuote(address(usdg), address(usdg), 1_000e6, 1_000e6, 7);
         assertFalse(rfq.quoteFillable(quoteOnly, _sign(quoteOnly), trader));
     }
+
+    function test_settlementRefusesFillsWhileSwapsArePaused() public {
+        Types.MakerQuote memory q = _makerQuote(address(usdg), address(nvda), 10_000e6, 56e18, 8);
+        bytes memory sig = _sign(q);
+        vm.prank(guardian);
+        params.setPaused(true);
+
+        // Calling as the router skips its own pause check, leaving settlement's as the only gate.
+        vm.prank(address(router));
+        vm.expectRevert(RfqSettler.SwapsPaused.selector);
+        rfq.settle(q, sig, trader, trader);
+        assertTrue(rfq.nonceUsable(maker, 8));
+    }
 }

@@ -131,6 +131,10 @@ contract OracleAdapter is IOracleAdapter {
         // A feed for the quote asset itself makes no sense, because it is the unit every price is quoted in.
         // Catching a zero feed here avoids discovering it later when the first quote fails.
         if (token == quoteToken || address(feed) == address(0)) revert InvalidFeedConfig();
+        // A price feed always answers above zero. Anything else means the wrong contract was passed, such as an
+        // uptime feed (whose healthy answer is 0), and the market would only find out once trading started.
+        (, int256 answer,,,) = feed.latestRoundData();
+        if (answer <= 0) revert InvalidFeedConfig();
         uint8 fd = feed.decimals();
         uint8 qd = IERC20Metadata(quoteToken).decimals();
         uint8 td = IERC20Metadata(token).decimals();

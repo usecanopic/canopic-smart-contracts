@@ -509,4 +509,25 @@ contract MarketHoursTest is Fixture {
         vm.expectRevert(OracleVault.MarketHalted.selector);
         nvdaVault.quoteSwap(true, 1_000e6);
     }
+
+    function test_configureFeedRefusesAFeedWithNoPrice() public {
+        // The sequencer uptime feed answers 0 while healthy, which no price feed ever does.
+        vm.prank(gov);
+        vm.expectRevert(OracleAdapter.InvalidFeedConfig.selector);
+        oracle.configureFeed(
+            address(nvda),
+            address(usdg),
+            AggregatorV3Interface(address(sequencer)),
+            1 hours,
+            2 hours,
+            4 days,
+            2500,
+            1 hours,
+            200,
+            address(nvda),
+            address(nvda),
+            address(nvda),
+            address(0)
+        );
+    }
 }

@@ -70,4 +70,10 @@ contract ProtocolTreasuryTest is Fixture {
         vm.expectRevert(ProtocolTreasury.NotGovernance.selector);
         fees.withdrawAllMany(tokens, outsider);
     }
+
+    function test_withdrawRefusesAZeroAmount() public {
+        vm.prank(gov);
+        vm.expectRevert(ProtocolTreasury.ZeroAmount.selector);
+        fees.withdraw(IERC20(address(usdg)), treasury, 0);
+    }
 }

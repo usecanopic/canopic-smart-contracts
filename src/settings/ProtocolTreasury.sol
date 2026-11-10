@@ -18,6 +18,7 @@ contract ProtocolTreasury {
 
     error NotGovernance();
     error ZeroAddress();
+    error ZeroAmount();
 
     constructor(ISettingsTimelock params_) {
         if (address(params_) == address(0)) revert ZeroAddress();
@@ -29,6 +30,9 @@ contract ProtocolTreasury {
         // Plenty of tokens treat sending to address zero as burning, meaning a proposal with a blank recipient
         // would quietly destroy the fees instead of failing.
         if (to == address(0)) revert ZeroAddress();
+        // A zero amount moves nothing yet still logs a withdrawal, which usually means the proposal was built
+        // wrong. withdrawAll exists for taking whatever is there.
+        if (amount == 0) revert ZeroAmount();
         token.safeTransfer(to, amount);
         emit Withdrawn(address(token), to, amount);
     }

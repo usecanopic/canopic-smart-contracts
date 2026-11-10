@@ -40,6 +40,7 @@ contract VaultFactory {
     error QuoteAssetNotListable();
     error ZeroAddress();
     error QuoteDecimalsUnsupported();
+    error FeedQuoteMismatch();
 
     modifier onlyGovernance() {
         if (msg.sender != params.owner()) revert NotGovernance();
@@ -90,6 +91,10 @@ contract VaultFactory {
         // Insisting on both up front keeps half-working markets out of the registry.
         if (!params.marketConfig(token).enabled) revert MarketNotConfigured();
         oracle.tokenDecimals(token); // FeedNotConfigured is raised here when the token has no feed
+        // The adapter scales every price into the decimals of the quote token named when the feed was configured.
+        // If that was a different token from this factory's, every price the vault reads would be off by a power
+        // of ten, so the two have to agree before the market opens.
+        if (oracle.quoteDecimals(token) != IERC20Metadata(quoteToken).decimals()) revert FeedQuoteMismatch();
         string memory sym = IERC20Metadata(token).symbol();
         vault = address(
             new OracleVault(

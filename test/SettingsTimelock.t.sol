@@ -9,7 +9,8 @@ import {VaultFactory} from "../src/venue/VaultFactory.sol";
 import {SwapRouter} from "../src/venue/SwapRouter.sol";
 import {IOracleAdapter} from "../src/interfaces/IOracleAdapter.sol";
 import {AttestationBook} from "../src/eligibility/AttestationBook.sol";
-import {MockERC20, MockStockToken} from "../src/mocks/Mocks.sol";
+import {MockERC20, MockStockToken, MockPriceFeed} from "../src/mocks/Mocks.sol";
+import {AggregatorV3Interface} from "../src/interfaces/ThirdParty.sol";
 
 /// @notice Checks how settings changes are governed: after bootstrap the timelock is the sole route to every
 ///         setter, the guardian's power is limited to pausing, and values the pricing maths could not handle
@@ -512,5 +513,54 @@ contract SettingsTimelockTest is Fixture {
             address(0),
             ISettingsTimelock.MarketConfig({tier: 1, dailyVolumeCap: 1_000e6, tvlCap: 1_000e6, enabled: true})
         );
+    }
+
+    function test_marketNeedsAFeedPricedInTheQuoteTokensDecimals() public {
+        MockStockToken fresh = new MockStockToken("Tesla Stock Token", "TSLAx");
+        MockERC20 wideDollar = new MockERC20("Wide Dollar", "WIDE", 18);
+        MockPriceFeed feed = new MockPriceFeed(8, 250_00_000_000);
+
+        vm.startPrank(gov);
+        params.setMarketConfig(
+            address(fresh),
+            ISettingsTimelock.MarketConfig({tier: 1, dailyVolumeCap: 1_000e6, tvlCap: 1_000e6, enabled: true})
+        );
+        // Priced in an 18 decimal dollar, so a USDG vault would read every price 1e12 times too high.
+        oracle.configureFeed(
+            address(fresh),
+            address(wideDollar),
+            AggregatorV3Interface(address(feed)),
+            1 hours,
+            2 hours,
+            4 days,
+            2500,
+            1 hours,
+            200,
+            address(fresh),
+            address(fresh),
+            address(fresh),
+            address(0)
+        );
+        vm.expectRevert(VaultFactory.FeedQuoteMismatch.selector);
+        factory.createMarket(address(fresh));
+
+        // Reconfigured against USDG, the market opens.
+        oracle.configureFeed(
+            address(fresh),
+            address(usdg),
+            AggregatorV3Interface(address(feed)),
+            1 hours,
+            2 hours,
+            4 days,
+            2500,
+            1 hours,
+            200,
+            address(fresh),
+            address(fresh),
+            address(fresh),
+            address(0)
+        );
+        assertTrue(factory.createMarket(address(fresh)) != address(0));
+        vm.stopPrank();
     }
 }

@@ -29,5 +29,7 @@ interface IOracleAdapter {
     function refresh(address token) external returns (Quote memory);
     function verifyStreamReport(address token, bytes calldata report) external returns (uint256 price);
     function tokenDecimals(address token) external view returns (uint8);
+    /// @notice Decimals of the quote token the feed for `token` was configured to price in.
+    function quoteDecimals(address token) external view returns (uint8);
     function hasStream(address token) external view returns (bool);
 }

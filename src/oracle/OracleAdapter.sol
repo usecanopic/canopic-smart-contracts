@@ -279,6 +279,12 @@ contract OracleAdapter is IOracleAdapter {
         return c.tokenDecimals;
     }
 
+    function quoteDecimals(address token) external view override returns (uint8) {
+        FeedConfig storage c = _feeds[token];
+        if (!c.configured) revert FeedNotConfigured(token);
+        return c.quoteDecimals;
+    }
+
     function feedConfig(address token) external view returns (FeedConfig memory) {
         return _feeds[token];
     }

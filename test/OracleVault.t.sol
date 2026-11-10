@@ -335,4 +335,10 @@ contract OracleVaultTest is Fixture {
         nvdaVault.withdrawWithMinimums(shares, address(nvdaVault), 0, 0);
         assertEq(nvdaVault.balanceOf(lp1), shares);
     }
+
+    function test_depositRefusesTheZeroReceiver() public {
+        vm.prank(lp1);
+        vm.expectRevert(OracleVault.ZeroAddress.selector);
+        nvdaVault.deposit(100_000e6, 0, 0, address(0));
+    }
 }

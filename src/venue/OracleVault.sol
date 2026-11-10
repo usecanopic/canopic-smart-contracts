@@ -128,6 +128,9 @@ contract OracleVault is ERC20, ReentrancyGuard {
         returns (uint256 shares)
     {
         if (quoteAmount == 0 && tokenAmount == 0) revert ZeroAmount();
+        // Minting to address zero always fails, but only later and as a role error about address zero, which
+        // reads like an attestation problem rather than a missing receiver.
+        if (receiver == address(0)) revert ZeroAddress();
         eligibility.requireRole(msg.sender, Roles.LP);
         if (receiver != msg.sender) eligibility.requireRole(receiver, Roles.LP);
 

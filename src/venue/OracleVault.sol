@@ -259,6 +259,9 @@ contract OracleVault is ERC20, ReentrancyGuard {
     function previewWithdraw(uint256 shares) public view returns (uint256 quoteOut, uint256 tokenOut) {
         uint256 supply = totalSupply();
         if (supply == 0) return (0, 0);
+        // No one can redeem more than the whole supply, so a larger figure is priced as the whole supply. Left
+        // uncapped, the preview would promise more than the vault holds.
+        if (shares > supply) shares = supply;
         quoteOut = quoteToken.balanceOf(address(this)) * shares / supply;
         tokenOut = token.balanceOf(address(this)) * shares / supply;
     }

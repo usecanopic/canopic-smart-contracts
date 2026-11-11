@@ -341,4 +341,14 @@ contract OracleVaultTest is Fixture {
         vm.expectRevert(OracleVault.ZeroAddress.selector);
         nvdaVault.deposit(100_000e6, 0, 0, address(0));
     }
+
+    function test_previewWithdrawNeverExceedsTheVaultsBalances() public {
+        uint256 shares = _seed(nvdaVault, NVDA_MID);
+        uint256 quoteHeld = usdg.balanceOf(address(nvdaVault));
+        uint256 tokenHeld = nvda.balanceOf(address(nvdaVault));
+
+        (uint256 quoteOut, uint256 tokenOut) = nvdaVault.previewWithdraw(shares * 10);
+        assertEq(quoteOut, quoteHeld);
+        assertEq(tokenOut, tokenHeld);
+    }
 }

@@ -95,6 +95,7 @@ contract SettingsTimelock is ISettingsTimelock {
     error DelayTooLong();
     error InvalidGrace();
     error ZeroAddress();
+    error SelfOwnership();
 
     // ---------------------------------------------------------------------
     // Caller checks
@@ -206,6 +207,9 @@ contract SettingsTimelock is ISettingsTimelock {
         // the current owner here can only be a mistake.
         if (to == address(0)) revert ZeroAddress();
         if (to == owner) revert NotPendingOwner();
+        // Only the owner can schedule or execute, so a timelock that owned itself could never act again. A
+        // scheduled call to acceptOwnership would do exactly that, which is why it is ruled out up front.
+        if (to == address(this)) revert SelfOwnership();
         pendingOwner = to;
         emit OwnershipTransferStarted(owner, to);
     }

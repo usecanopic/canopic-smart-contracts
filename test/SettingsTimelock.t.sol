@@ -563,4 +563,11 @@ contract SettingsTimelockTest is Fixture {
         assertTrue(factory.createMarket(address(fresh)) != address(0));
         vm.stopPrank();
     }
+
+    function test_timelockCannotBeHandedToItself() public {
+        vm.prank(gov);
+        vm.expectRevert(SettingsTimelock.SelfOwnership.selector);
+        params.transferOwnership(address(params));
+        assertEq(params.pendingOwner(), address(0));
+    }
 }

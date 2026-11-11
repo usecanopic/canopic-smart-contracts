@@ -19,6 +19,7 @@ contract ProtocolTreasury {
     error NotGovernance();
     error ZeroAddress();
     error ZeroAmount();
+    error InvalidRecipient();
 
     constructor(ISettingsTimelock params_) {
         if (address(params_) == address(0)) revert ZeroAddress();
@@ -30,6 +31,9 @@ contract ProtocolTreasury {
         // Plenty of tokens treat sending to address zero as burning, meaning a proposal with a blank recipient
         // would quietly destroy the fees instead of failing.
         if (to == address(0)) revert ZeroAddress();
+        // Paying the treasury itself moves nothing but still logs a payout, which would mislead anyone
+        // reconciling fees from the events.
+        if (to == address(this)) revert InvalidRecipient();
         // A zero amount moves nothing yet still logs a withdrawal, which usually means the proposal was built
         // wrong. withdrawAll exists for taking whatever is there.
         if (amount == 0) revert ZeroAmount();
@@ -42,6 +46,7 @@ contract ProtocolTreasury {
     function withdrawAll(IERC20 token, address to) external returns (uint256 amount) {
         if (msg.sender != params.owner()) revert NotGovernance();
         if (to == address(0)) revert ZeroAddress();
+        if (to == address(this)) revert InvalidRecipient();
         amount = _sweep(token, to);
     }
 
@@ -50,6 +55,7 @@ contract ProtocolTreasury {
     function withdrawAllMany(IERC20[] calldata tokens, address to) external returns (uint256[] memory amounts) {
         if (msg.sender != params.owner()) revert NotGovernance();
         if (to == address(0)) revert ZeroAddress();
+        if (to == address(this)) revert InvalidRecipient();
         amounts = new uint256[](tokens.length);
         for (uint256 i = 0; i < tokens.length; i++) {
             amounts[i] = _sweep(tokens[i], to);

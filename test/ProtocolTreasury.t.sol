@@ -76,4 +76,17 @@ contract ProtocolTreasuryTest is Fixture {
         vm.expectRevert(ProtocolTreasury.ZeroAmount.selector);
         fees.withdraw(IERC20(address(usdg)), treasury, 0);
     }
+
+    function test_treasuryCannotPayItself() public {
+        IERC20[] memory tokens = new IERC20[](1);
+        tokens[0] = IERC20(address(usdg));
+        vm.startPrank(gov);
+        vm.expectRevert(ProtocolTreasury.InvalidRecipient.selector);
+        fees.withdraw(tokens[0], address(fees), 1e6);
+        vm.expectRevert(ProtocolTreasury.InvalidRecipient.selector);
+        fees.withdrawAll(tokens[0], address(fees));
+        vm.expectRevert(ProtocolTreasury.InvalidRecipient.selector);
+        fees.withdrawAllMany(tokens, address(fees));
+        vm.stopPrank();
+    }
 }

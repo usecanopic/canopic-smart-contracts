@@ -158,6 +158,8 @@ contract RfqSettler is EIP712 {
         view
         returns (bool)
     {
+        // Settlement refuses every fill while swaps are paused, so a quote that cannot settle is not fillable.
+        if (params.swapsPaused()) return false;
         if (q.amountIn == 0 || q.amountOut == 0 || block.timestamp > q.expiry) return false;
         if (q.taker != address(0) && q.taker != taker) return false;
         if (q.maker == taker) return false;

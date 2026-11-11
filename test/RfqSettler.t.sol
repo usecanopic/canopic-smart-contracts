@@ -351,4 +351,18 @@ contract RfqSettlerTest is Fixture {
         rfq.settle(q, sig, trader, trader);
         assertTrue(rfq.nonceUsable(maker, 8));
     }
+
+    function test_quoteFillableIsFalseWhileSwapsArePaused() public {
+        Types.MakerQuote memory q = _makerQuote(address(usdg), address(nvda), 10_000e6, 56e18, 9);
+        bytes memory sig = _sign(q);
+        assertTrue(rfq.quoteFillable(q, sig, trader));
+
+        vm.prank(guardian);
+        params.setPaused(true);
+        assertFalse(rfq.quoteFillable(q, sig, trader));
+
+        vm.prank(gov);
+        params.setPaused(false);
+        assertTrue(rfq.quoteFillable(q, sig, trader));
+    }
 }

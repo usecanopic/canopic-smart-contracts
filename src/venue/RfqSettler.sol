@@ -165,6 +165,10 @@ contract RfqSettler is EIP712 {
         if (q.maker == taker) return false;
         // Settlement refuses a quote unless the quote asset is on exactly one side, so this view does too.
         if ((q.tokenIn == quoteToken) == (q.tokenOut == quoteToken)) return false;
+        // A delisted market, or one whose tier is switched off, fails settlement's listing check too.
+        ISettingsTimelock.MarketConfig memory mkt =
+            params.marketConfig(q.tokenIn == quoteToken ? q.tokenOut : q.tokenIn);
+        if (!mkt.enabled || !params.tierConfig(mkt.tier).enabled) return false;
         if (nonceUsed[q.maker][q.nonce] || q.nonce < minNonce[q.maker]) return false;
         if (!SignatureChecker.isValidSignatureNow(q.maker, quoteDigest(q), signature)) return false;
         return eligibility.isEligible(q.maker, Roles.MAKER);

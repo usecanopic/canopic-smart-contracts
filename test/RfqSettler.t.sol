@@ -365,4 +365,17 @@ contract RfqSettlerTest is Fixture {
         params.setPaused(false);
         assertTrue(rfq.quoteFillable(q, sig, trader));
     }
+
+    function test_quoteFillableIsFalseOnceTheMarketIsRetired() public {
+        Types.MakerQuote memory q = _makerQuote(address(usdg), address(nvda), 10_000e6, 56e18, 10);
+        bytes memory sig = _sign(q);
+        assertTrue(rfq.quoteFillable(q, sig, trader));
+
+        uint8 tierId = params.marketConfig(address(nvda)).tier;
+        ISettingsTimelock.TierConfig memory tier = params.tierConfig(tierId);
+        tier.enabled = false;
+        vm.prank(gov);
+        params.setTierConfig(tierId, tier);
+        assertFalse(rfq.quoteFillable(q, sig, trader));
+    }
 }

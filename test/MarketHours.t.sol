@@ -530,4 +530,42 @@ contract MarketHoursTest is Fixture {
             address(0)
         );
     }
+
+    function test_feedLimitsCannotExceedOneHundredPercent() public {
+        vm.prank(gov);
+        vm.expectRevert(OracleAdapter.InvalidFeedConfig.selector);
+        oracle.configureFeed(
+            address(nvda),
+            address(usdg),
+            AggregatorV3Interface(address(nvdaFeed)),
+            1 hours,
+            2 hours,
+            4 days,
+            10_001,
+            1 hours,
+            200,
+            address(nvda),
+            address(nvda),
+            address(nvda),
+            address(0)
+        );
+
+        vm.prank(gov);
+        vm.expectRevert(OracleAdapter.InvalidFeedConfig.selector);
+        oracle.configureFeed(
+            address(nvda),
+            address(usdg),
+            AggregatorV3Interface(address(nvdaFeed)),
+            1 hours,
+            2 hours,
+            4 days,
+            2500,
+            1 hours,
+            10_001,
+            address(nvda),
+            address(nvda),
+            address(nvda),
+            address(0xDEAD)
+        );
+    }
 }

@@ -128,6 +128,9 @@ contract OracleAdapter is IOracleAdapter {
         if (stalenessRegular == 0 || stalenessExtended == 0 || stalenessClosed == 0) revert InvalidFeedConfig();
         if (moveCapBps != 0 && moveCapWindow == 0) revert InvalidFeedConfig();
         if (streamAdapter != address(0) && streamDivergenceBps == 0) revert InvalidFeedConfig();
+        // Both limits are fractions of the price. Above 100% the move cap can never trip on a falling price and
+        // the divergence check lets any report through, so values past BPS only look like protection.
+        if (moveCapBps > Types.BPS || streamDivergenceBps > Types.BPS) revert InvalidFeedConfig();
         // A feed for the quote asset itself makes no sense, because it is the unit every price is quoted in.
         // Catching a zero feed here avoids discovering it later when the first quote fails.
         if (token == quoteToken || address(feed) == address(0)) revert InvalidFeedConfig();
